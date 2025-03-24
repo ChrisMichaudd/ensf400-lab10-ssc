@@ -290,10 +290,12 @@ From `alpine.spdx.json`:
 
 ### (b) Licensing concerns?
 
-- No conflict. GPL-2.0 and MIT can coexist.
-- MIT is permissive and compatible with GPL.
-- Must fulfill **GPL obligations for BusyBox** (source code, license).
-- Must retain **MIT license notice** for musl.
+- **In simple terms**: There’s no major clash. GPL-2.0 (for BusyBox) and MIT (for musl) can be used together.
+- **Why?** The MIT license is “permissive” and doesn’t impose extra restrictions that conflict with GPL.
+- **What must you do?**
+  - You **must honor the GPL** terms for BusyBox by offering source code or a written offer for source, and include a copy of the GPL license.
+  - You **must keep** the MIT license notice for musl (it’s required under MIT).
+- **Bottom line**: Both licenses can exist in the same container without violating each other as long as their respective requirements are met.
 
 ---
 
