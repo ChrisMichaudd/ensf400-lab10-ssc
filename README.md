@@ -173,3 +173,155 @@ the lab. You may discuss the questions within your group and ask for help from a
 - Q4: (a) Which license is declared for the BusyBox package in the Alpine image, according to the output collected in `alpine.spdx.json`? Which license is declared by the musl package? (b) Are there any licensing concerns with including both these packages in this container? Why or why not?
 - Q5: (a) What command would you use to create an SBoM for the FOSSology 4.4.0 image in CycloneDX XML format, saving the result to a file? Explain each part of the command. (b) What command would you use to provide the resulting SBoM to Grype *without* creating or using a cache of the vulnerabilities database? 
 
+## Q1: What are the implications of the Toolbox project being GPLv3 licensed and having a sub-component which is MIT licensed?
+
+### (a) Effect of GPLv3 as repository license and MIT as in-code license
+
+- GPLv3 is a **copyleft** license. Any code that incorporates GPLv3-licensed content and is distributed must also be licensed under GPLv3.
+- MIT is a **permissive** license. Code under MIT can be included in a GPLv3 project without issue.
+- However, when combining the two, the effective license for the distributed project is **GPLv3**.
+- The MIT component must **retain its license notice**, but the distribution as a whole is governed by **GPLv3** terms.
+
+### (b) Implications for the container based on `zsh-in-docker.sh` and `LICENSE`
+
+- The container includes GPLv3 and MIT-licensed components.
+- As the LICENSE file declares the repository under GPLv3, any distribution of the container must comply with GPLv3.
+- The MIT license still requires attribution and inclusion of the license text.
+- The container as a whole must be distributed under GPLv3, but inclusion of MIT parts is allowed as long as licensing terms are respected.
+
+---
+
+## Q2: Docker Grype Command Breakdown
+
+### (a) What does this command do?
+
+```bash
+docker run --rm -it -e GRYPE_DB_CACHE_DIR=/host -v ${PWD}:/host \
+  -e GRYPE_DB_AUTO_UPDATE=false -v ${PWD}:/data \
+  anchore/grype sbom:/data/alpine.spdx.json
+```
+
+- `docker run --rm`: Runs a temporary container that deletes itself after execution.
+- `-it`: Interactive terminal mode for readable output.
+- `-e GRYPE_DB_CACHE_DIR=/host`: Tells Grype to cache vulnerability DB at `/host`.
+- `-v ${PWD}:/host`: Mounts current directory to `/host` inside container (for cache).
+- `-e GRYPE_DB_AUTO_UPDATE=false`: Disables auto-update of the vulnerability DB.
+- `-v ${PWD}:/data`: Mounts current directory to `/data` so SBOM file is accessible.
+- `anchore/grype`: Docker image containing Grype tool.
+- `sbom:/data/alpine.spdx.json`: Tells Grype to scan this SBOM file.
+
+### (b) Simplified version of the command
+
+```bash
+docker run --rm -it -e GRYPE_DB_AUTO_UPDATE=false \
+  -e GRYPE_DB_CACHE_DIR=/grype_data \
+  -v ${PWD}:/grype_data \
+  anchore/grype sbom:/grype_data/alpine.spdx.json
+```
+
+- One volume mount used instead of two.
+- Still retains caching, scanning, and disables DB auto-update.
+
+---
+
+## Q3: VEX File - Not Affected and Fixed Vulnerabilities
+
+### (a) Allowed justifications for `not_affected`
+
+- `code_not_present`
+- `vulnerable_code_not_in_execute_path`
+- `vulnerable_code_cannot_be_controlled_by_adversary`
+- `inline_mitigations_already_exist`
+
+### (b) Marking CVE-2022-0563 as fixed
+
+```bash
+docker run --rm -v ${PWD}:/data ghcr.io/openvex/vexctl:v0.2.6 create \
+  --vuln="CVE-2022-0563" \
+  --status="fixed" \
+  --justification="inline_mitigations_already_exist" \
+  --product="pkg:oci/alpine" \
+  --file /data/alpine-vex.json
+```
+
+Explanation:
+- `--rm`: Deletes container after run.
+- `-v ${PWD}:/data`: Mounts current folder.
+- `ghcr.io/openvex/vexctl:v0.2.6`: Docker image with VEX tool.
+- `create`: Generates new VEX document.
+- `--vuln`: Specifies CVE to address.
+- `--status`: Marks vulnerability as "fixed".
+- `--justification`: Reason it's fixed (or not exploitable).
+- `--product`: Package affected.
+- `--file`: Output file for VEX document.
+
+---
+
+## Q4: Licenses in Alpine Image
+
+### (a) Declared licenses
+
+- **BusyBox**: `GPL-2.0-only`
+- **musl**: `MIT`
+
+From `alpine.spdx.json`:
+
+```json
+{
+  "name": "busybox",
+  "SPDXID": "SPDXRef-Package-apk-busybox-6d810d507355b170",
+  "versionInfo": "1.36.1-r15",
+  ...
+  "licenseDeclared": "GPL-2.0-only",
+  ...
+  "description": "Size optimized toolbox of many common UNIX utilities"
+}
+
+{
+  "name": "musl",
+  "SPDXID": "SPDXRef-Package-apk-musl-c9b07b7f6eec0816",
+  "versionInfo": "1.2.4_git20230717-r4",
+  ...
+  "licenseDeclared": "MIT",
+  ...
+  "description": "the musl c library (libc) implementation"
+}
+```
+
+### (b) Licensing concerns?
+
+- No conflict. GPL-2.0 and MIT can coexist.
+- MIT is permissive and compatible with GPL.
+- Must fulfill **GPL obligations for BusyBox** (source code, license).
+- Must retain **MIT license notice** for musl.
+
+---
+
+## Q5: Creating and Scanning an SBoM
+
+### (a) Create CycloneDX XML SBoM for FOSSology 4.4.0
+
+```bash
+docker run --rm anchore/syft:v1.0.1 scan fossology/fossology:4.4.0 -o cyclonedx-xml > fossology-4.4.0.cyclonedx.xml
+```
+
+Explanation:
+- `--rm`: Temporary container.
+- `anchore/syft:v1.0.1`: Syft image.
+- `scan fossology/fossology:4.4.0`: Target image.
+- `-o cyclonedx-xml`: Output format.
+- `> file.xml`: Redirects output to file.
+
+### (b) Scan the SBoM with Grype without caching
+
+```bash
+docker run --rm \
+  -v ${PWD}:/data \
+  -e GRYPE_DB_AUTO_UPDATE=false \
+  anchore/grype \
+  sbom:/data/fossology-4.4.0.cyclonedx.xml
+```
+
+- Mounts local folder for input.
+- Disables database auto-updates (no cache).
+- Scans the specified SBoM file.
