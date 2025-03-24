@@ -195,6 +195,8 @@ the lab. You may discuss the questions within your group and ask for help from a
 
 ### (a) What does this command do?
 
+This command runs Grype (a vulnerability scanner) in a temporary Docker container. It takes a previously generated Software Bill of Materials (SBoM) file (which lists software packages), checks it against a database of known security issues, and reports any vulnerabilities. It also saves and looks up the vulnerability database outside the container (so it won’t have to download it again later) and skips automatic updates to keep things simple. Essentially, it’s just scanning the SBoM for known security risks using a cached database.
+
 ```bash
 docker run --rm -it -e GRYPE_DB_CACHE_DIR=/host -v ${PWD}:/host \
   -e GRYPE_DB_AUTO_UPDATE=false -v ${PWD}:/data \
